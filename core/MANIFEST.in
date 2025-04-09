@@ -1,0 +1,5 @@
+include *.txt
+include .env
+recursive-include rpn *.py
+recursive-include db *.py
+recursive-include tests *.py 

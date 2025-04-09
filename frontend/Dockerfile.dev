@@ -1,0 +1,15 @@
+FROM node:18-alpine
+
+WORKDIR /app
+
+# Copy package files
+COPY frontend/package.json frontend/package-lock.json* ./
+
+# Install dependencies
+RUN npm install
+
+# Expose the port
+EXPOSE 3000
+
+# Start the development server with hot-reloading
+CMD ["npm", "run", "dev"] 

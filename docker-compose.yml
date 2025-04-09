@@ -1,0 +1,124 @@
+version: '3.8'
+
+services:
+  # Database service
+  db:
+    image: postgres:15
+    container_name: rpn-calculator-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rpn_calculator
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rpn-network
+
+  # Backend FastAPI service
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: rpn-calculator-backend
+    env_file:
+      - backend/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/rpn_calculator
+      - FRONTEND_URL=http://localhost:3000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app/backend
+      - ./core:/app/core
+    command: uvicorn backend.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - rpn-network
+    develop:
+      watch:
+        - action: sync
+          path: ./backend
+          target: /app/backend
+          ignore:
+            - __pycache__/
+            - "*.pyc"
+        - action: sync
+          path: ./core
+          target: /app/core
+          ignore:
+            - __pycache__/
+            - "*.pyc"
+        - action: rebuild
+          path: backend/requirements.txt
+
+  # Frontend Next.js service
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile.dev
+    container_name: rpn-calculator-frontend
+    env_file:
+      - frontend/.env
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - frontend_node_modules:/app/node_modules
+    command: npm run dev
+    depends_on:
+      - backend
+    networks:
+      - rpn-network
+    develop:
+      watch:
+        - action: sync
+          path: ./frontend/src
+          target: /app/src
+          ignore:
+            - node_modules/
+        - action: sync
+          path: ./frontend/public
+          target: /app/public
+        - action: rebuild
+          path: frontend/package.json
+      
+  # Test service
+  test:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: rpn-calculator-test
+    command: >
+      bash -c "cd /app && 
+      chmod +x /app/run_tests.sh && 
+      /app/run_tests.sh"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/rpn_calculator_test
+      - PYTHONPATH=/app
+    volumes:
+      - ./core:/app/core
+      - ./run_tests.sh:/app/run_tests.sh
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - rpn-network
+
+networks:
+  rpn-network:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  frontend_node_modules: 

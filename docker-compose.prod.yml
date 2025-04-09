@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Database service
+  db:
+    image: postgres:15
+    container_name: rpn-calculator-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: rpn_calculator
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - rpn-network
+
+  # Backend FastAPI service
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    container_name: rpn-calculator-backend
+    env_file:
+      - backend/.env
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/rpn_calculator
+      - FRONTEND_URL=http://localhost:3000
+    ports:
+      - "8000:8000"
+    depends_on:
+      db:
+        condition: service_healthy
+    networks:
+      - rpn-network
+
+  # Frontend Next.js service
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    container_name: rpn-calculator-frontend
+    env_file:
+      - frontend/.env
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - rpn-network
+
+networks:
+  rpn-network:
+    driver: bridge
+
+volumes:
+  postgres_data: 
