@@ -115,7 +115,7 @@ jobs:
           cd backend
           python -m pytest -v
           # Run the API tests explicitly
-          python -m pytest tests/test_api.py -v
+          PYTHONPATH=$PYTHONPATH:$(pwd) python -m pytest tests/test_api.py -v
       
       - name: Run backend tests in Docker
         run: |
