@@ -30,7 +30,7 @@ COPY backend/ /app/backend/
 
 # Build stage for testing
 FROM base as test
-RUN pip install pytest fastapi-testclient
+RUN pip install pytest httpx
 
 # Create a directory for test results if needed
 RUN mkdir -p /app/test-results
