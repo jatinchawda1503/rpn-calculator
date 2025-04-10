@@ -38,6 +38,8 @@ RUN mkdir -p /app/test-results
 # Create an entrypoint for running tests
 COPY backend/tests/ /app/backend/tests/
 # Run tests as the default command for this stage
+# Set PYTHONPATH to ensure modules can be found
+ENV PYTHONPATH=/app
 CMD ["pytest", "-v", "/app/backend/tests"]
 
 # Final production stage

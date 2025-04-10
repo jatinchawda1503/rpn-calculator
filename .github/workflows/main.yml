@@ -113,9 +113,10 @@ jobs:
       - name: Run backend tests
         run: |
           cd backend
-          python -m pytest -v
+          # Include parent directory in PYTHONPATH to find both backend and core modules
+          PYTHONPATH=$PYTHONPATH:$(pwd):$(pwd)/.. python -m pytest -v
           # Run the API tests explicitly
-          PYTHONPATH=$PYTHONPATH:$(pwd) python -m pytest tests/test_api.py -v
+          PYTHONPATH=$PYTHONPATH:$(pwd):$(pwd)/.. python -m pytest tests/test_api.py -v
       
       - name: Run backend tests in Docker
         run: |
