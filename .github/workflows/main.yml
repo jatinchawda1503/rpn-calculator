@@ -88,12 +88,149 @@ jobs:
         run: |
           cd backend
           pip install -r requirements.txt
-          pip install pytest
+          pip install pytest pytest-asyncio httpx
+      
+      - name: Setup backend tests
+        run: |
+          cd backend
+          # Create tests directory if it doesn't exist
+          mkdir -p tests
+          
+          # Create a conftest.py file for FastAPI test fixtures
+          cat > tests/conftest.py << 'EOF'
+          import pytest
+          from fastapi.testclient import TestClient
+          from sqlalchemy import create_engine
+          from sqlalchemy.orm import sessionmaker
+          
+          from core.db.models import Base
+          from core.db.db import get_db
+          from main import app
+          
+          # Use in-memory SQLite for testing
+          TEST_DB_URL = "sqlite:///:memory:"
+          
+          @pytest.fixture
+          def test_db():
+              """Create a clean database for each test."""
+              engine = create_engine(TEST_DB_URL)
+              Base.metadata.create_all(engine)
+              TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+              db = TestingSessionLocal()
+              try:
+                  yield db
+              finally:
+                  db.close()
+                  Base.metadata.drop_all(engine)
+          
+          @pytest.fixture
+          def test_client(test_db):
+              """Create a test client with a test database."""
+              def override_get_db():
+                  try:
+                      yield test_db
+                  finally:
+                      pass
+          
+              app.dependency_overrides[get_db] = override_get_db
+              with TestClient(app) as client:
+                  yield client
+          
+              # Reset the dependency override
+              app.dependency_overrides = {}
+          EOF
+          
+          # Create test_api.py for API endpoint tests
+          cat > tests/test_api.py << 'EOF'
+          import pytest
+          from fastapi.testclient import TestClient
+          
+          def test_root_endpoint(test_client):
+              """Test that the root endpoint returns the correct response."""
+              response = test_client.get("/")
+              assert response.status_code == 200
+              data = response.json()
+              assert "message" in data
+              assert data["message"] == "RPN Calculator API"
+          
+          def test_supported_operations(test_client):
+              """Test that the supported operations endpoint returns the correct data."""
+              response = test_client.get("/api/supported-operations")
+              assert response.status_code == 200
+              data = response.json()
+              assert "basic_operators" in data
+              assert "+" in data["basic_operators"]
+              assert "functions" in data
+              assert "sqrt" in data["functions"]
+              assert "constants" in data
+              assert "pi" in data["constants"]
+          
+          def test_calculate_endpoint(test_client):
+              """Test that the calculate endpoint works correctly."""
+              # Test basic addition
+              response = test_client.post(
+                  "/api/calculate",
+                  json={"expression": "3 4 +", "user_id": "test_user"}
+              )
+              assert response.status_code == 200
+              data = response.json()
+              assert data["result"] == 7
+          
+              # Test more complex expression
+              response = test_client.post(
+                  "/api/calculate",
+                  json={"expression": "5 3 - 2 *", "user_id": "test_user"}
+              )
+              assert response.status_code == 200
+              data = response.json()
+              assert data["result"] == 4
+          
+              # Test invalid expression
+              response = test_client.post(
+                  "/api/calculate",
+                  json={"expression": "invalid", "user_id": "test_user"}
+              )
+              assert response.status_code == 400
+          
+          def test_history_endpoint(test_client):
+              """Test that the history endpoints work correctly."""
+              # Add some calculations first
+              test_client.post(
+                  "/api/calculate",
+                  json={"expression": "10 5 +", "user_id": "history_test_user"}
+              )
+              
+              test_client.post(
+                  "/api/calculate",
+                  json={"expression": "20 2 *", "user_id": "history_test_user"}
+              )
+              
+              # Test user-specific history
+              response = test_client.get("/api/history/history_test_user")
+              assert response.status_code == 200
+              data = response.json()
+              assert len(data) == 2
+              
+              # Verify history entries
+              expressions = [item["expression"] for item in data]
+              assert "10 5 +" in expressions
+              assert "20 2 *" in expressions
+          EOF
+          
+          # Create test_health.py for health checks
+          cat > tests/test_health.py << 'EOF'
+          import pytest
+          
+          def test_health_check(test_client):
+              """Test that the API is healthy."""
+              response = test_client.get("/")
+              assert response.status_code == 200
+          EOF
       
       - name: Run backend tests
         run: |
           cd backend
-          python -m pytest
+          python -m pytest -v
       
       - name: Install frontend dependencies
         run: |
