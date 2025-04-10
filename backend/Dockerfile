@@ -1,4 +1,4 @@
-FROM python:3.10-slim
+FROM python:3.10-slim as base
 
 WORKDIR /app
 
@@ -27,7 +27,22 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy the backend package
 COPY backend/ /app/backend/
-# Copy the test scripts
+
+# Build stage for testing
+FROM base as test
+RUN pip install pytest fastapi-testclient
+
+# Create a directory for test results if needed
+RUN mkdir -p /app/test-results
+
+# Create an entrypoint for running tests
+COPY backend/tests/ /app/backend/tests/
+# Run tests as the default command for this stage
+CMD ["pytest", "-v", "/app/backend/tests"]
+
+# Final production stage
+FROM base as production
+# Copy the test scripts if any
 COPY run_tests.sh /app/
 
 # Command to run on container start

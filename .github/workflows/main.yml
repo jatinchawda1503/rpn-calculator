@@ -88,7 +88,7 @@ jobs:
         run: |
           cd backend
           pip install -r requirements.txt
-          pip install pytest
+          pip install pytest fastapi-testclient
       
       - name: Setup backend tests
         run: |
@@ -115,6 +115,15 @@ jobs:
         run: |
           cd backend
           python -m pytest -v
+          # Run the API tests explicitly
+          python -m pytest tests/test_api.py -v
+      
+      - name: Run backend tests in Docker
+        run: |
+          # Build the test stage Docker image
+          docker build -t rpn-calculator-backend:test --target test -f backend/Dockerfile .
+          # Run the tests in Docker
+          docker run --rm rpn-calculator-backend:test
       
       - name: Install frontend dependencies
         run: |
