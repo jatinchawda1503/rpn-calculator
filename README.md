@@ -128,12 +128,10 @@ rpn-calculator/
 │
 ├── backend/             # FastAPI server
 │   ├── api/             # API routes
-│   ├── tests/           # API tests
 │   └── Dockerfile       # Backend container definition
 │
 ├── frontend/            # Next.js frontend
 │   ├── src/             # React components and pages
-│   ├── tests/           # Frontend tests
 │   ├── Dockerfile       # Production container definition
 │   └── Dockerfile.dev   # Development container definition
 │
@@ -361,14 +359,6 @@ pip install -e .
 
 # Run core tests
 python -m tests.run_all_tests
-
-# Run backend tests
-cd ../backend
-python -m pytest
-
-# Run frontend tests
-cd ../frontend
-npm test
 ```
 
 ### Example Test Expressions
