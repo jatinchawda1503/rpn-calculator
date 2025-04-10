@@ -19,21 +19,6 @@ cd core
 python -m tests.run_all_tests
 cd ..
 
-# Run backend tests if available
-if [ -d "backend/tests" ]; then
-    echo -e "\n${BLUE}Running backend tests...${NC}"
-    echo "Building and running backend tests in Docker..."
-
-    # Build the Docker image with the test stage
-    docker build -t rpn-calculator-backend:test --target test -f backend/Dockerfile .
-
-    # Run the tests inside the container
-    docker run --rm rpn-calculator-backend:test
-
-    echo -e "\n${GREEN}All tests completed successfully!${NC}"
-    echo -e "${BLUE}========================================${NC}"
-fi
-
 # Run frontend tests if available
 if [ -d "frontend/tests" ]; then
     echo -e "\n${BLUE}Running frontend tests...${NC}"

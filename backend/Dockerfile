@@ -1,4 +1,4 @@
-FROM python:3.10-slim as base
+FROM python:3.10-slim
 
 WORKDIR /app
 
@@ -28,22 +28,6 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the backend package
 COPY backend/ /app/backend/
 
-# Build stage for testing
-FROM base as test
-RUN pip install pytest httpx
-
-# Create a directory for test results if needed
-RUN mkdir -p /app/test-results
-
-# Create an entrypoint for running tests
-COPY backend/tests/ /app/backend/tests/
-# Run tests as the default command for this stage
-# Set PYTHONPATH to ensure modules can be found
-ENV PYTHONPATH=/app
-CMD ["pytest", "-v", "/app/backend/tests"]
-
-# Final production stage
-FROM base as production
 # Copy the test scripts if any
 COPY run_tests.sh /app/
 

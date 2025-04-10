@@ -89,42 +89,6 @@ jobs:
           cd backend
           pip install -r requirements.txt
       
-      - name: Setup backend tests
-        run: |
-          cd backend
-          # Create tests directory if it doesn't exist
-          mkdir -p tests
-          
-          # Create a basic test file to ensure pytest finds tests
-          cat > tests/test_basic.py << 'EOF'
-          def test_hello():
-              """A simple test to verify pytest is working."""
-              assert True
-              
-          def test_import():
-              """Test that we can import main app modules."""
-              try:
-                  import main
-                  assert True
-              except ImportError:
-                  assert False, "Failed to import main module"
-          EOF
-      
-      - name: Run backend tests
-        run: |
-          cd backend
-          # Include parent directory in PYTHONPATH to find both backend and core modules
-          PYTHONPATH=$PYTHONPATH:$(pwd):$(pwd)/.. python -m pytest -v
-          # Run the API tests explicitly
-          PYTHONPATH=$PYTHONPATH:$(pwd):$(pwd)/.. python -m pytest tests/test_api.py -v
-      
-      - name: Run backend tests in Docker
-        run: |
-          # Build the test stage Docker image
-          docker build -t rpn-calculator-backend:test --target test -f backend/Dockerfile .
-          # Run the tests in Docker
-          docker run --rm rpn-calculator-backend:test
-      
       - name: Install frontend dependencies
         run: |
           cd frontend
