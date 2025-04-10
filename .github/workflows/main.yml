@@ -63,11 +63,25 @@ jobs:
         run: |
           cd core
           pip install -e .
-          pip install pytest
+          pip install pytest psycopg2-binary
+          
+      - name: Debug environment
+        run: |
+          cd core
+          echo "DATABASE_URL from environment: $DATABASE_URL"
+          echo "Content of .env file:"
+          cat .env
+          echo "Installed packages:"
+          pip list
+          echo "Files in db directory:"
+          ls -la db/
       
       - name: Run core tests
         run: |
           cd core
+          # Run tests with SQLite only first
+          python -m pytest tests/test_db.py -v
+          # Then run all tests
           python -m pytest
       
       - name: Install backend dependencies
