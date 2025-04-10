@@ -98,14 +98,19 @@ jobs:
           
           # Create a conftest.py file for FastAPI test fixtures
           cat > tests/conftest.py << 'EOF'
+          import os
+          import sys
           import pytest
           from fastapi.testclient import TestClient
           from sqlalchemy import create_engine
           from sqlalchemy.orm import sessionmaker
           
+          # Add parent directory to Python path to import core
+          sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+          
           from core.db.models import Base
           from core.db.db import get_db
-          from main import app
+          from backend.main import app
           
           # Use in-memory SQLite for testing
           TEST_DB_URL = "sqlite:///:memory:"
@@ -142,8 +147,13 @@ jobs:
           
           # Create test_api.py for API endpoint tests
           cat > tests/test_api.py << 'EOF'
+          import os
+          import sys
           import pytest
           from fastapi.testclient import TestClient
+          
+          # Add parent directory to Python path to import modules
+          sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
           
           def test_root_endpoint(test_client):
               """Test that the root endpoint returns the correct response."""
@@ -219,7 +229,12 @@ jobs:
           
           # Create test_health.py for health checks
           cat > tests/test_health.py << 'EOF'
+          import os
+          import sys
           import pytest
+          
+          # Add parent directory to Python path to import modules
+          sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
           
           def test_health_check(test_client):
               """Test that the API is healthy."""
@@ -230,6 +245,7 @@ jobs:
       - name: Run backend tests
         run: |
           cd backend
+          export PYTHONPATH=$PYTHONPATH:$(pwd)/..
           python -m pytest -v
       
       - name: Install frontend dependencies
