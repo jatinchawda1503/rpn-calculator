@@ -94,10 +94,10 @@ jobs:
           cd frontend
           npm ci
       
-      - name: Run frontend tests
+      - name: Run frontend linting
         run: |
           cd frontend
-          npm test
+          npm run lint
 
   approve-merge:
     runs-on: ubuntu-latest

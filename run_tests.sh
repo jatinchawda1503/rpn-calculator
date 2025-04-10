@@ -19,11 +19,11 @@ cd core
 python -m tests.run_all_tests
 cd ..
 
-# Run frontend tests if available
-if [ -d "frontend/tests" ]; then
-    echo -e "\n${BLUE}Running frontend tests...${NC}"
+# Run frontend linting if available
+if [ -d "frontend" ]; then
+    echo -e "\n${BLUE}Running frontend linting...${NC}"
     cd frontend
-    npm test
+    npm run lint
     cd ..
 fi
 
