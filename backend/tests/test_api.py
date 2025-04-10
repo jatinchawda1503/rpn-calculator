@@ -5,7 +5,8 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from main import app
-from core.db import Base, get_db
+from core.db import get_db
+from core.db.models import Base
 
 
 # Create an in-memory SQLite database for testing
