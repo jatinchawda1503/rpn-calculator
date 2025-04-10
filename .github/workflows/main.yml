@@ -1,0 +1,101 @@
+name: RPN Calculator CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - uses: actions/checkout@v3
+      
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.10'
+      
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18'
+          cache: 'npm'
+          cache-dependency-path: '**/package-lock.json'
+      
+      - name: Create environment files
+        run: |
+          # Root .env
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" > .env
+          
+          # Core .env
+          mkdir -p core
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" > core/.env
+          
+          # Backend .env
+          mkdir -p backend
+          echo "DATABASE_URL=postgresql://postgres:postgres@localhost:5432/test_db" > backend/.env
+          echo "CORE_MODULE_PATH=../core" >> backend/.env
+          echo "ALLOW_ORIGINS=http://localhost:3000" >> backend/.env
+          
+          # Frontend .env
+          mkdir -p frontend
+          echo "NEXT_PUBLIC_API_URL=http://localhost:8000" > frontend/.env
+      
+      - name: Install core dependencies
+        run: |
+          cd core
+          pip install -e .
+          pip install pytest
+      
+      - name: Run core tests
+        run: |
+          cd core
+          python -m pytest
+      
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip install pytest
+      
+      - name: Run backend tests
+        run: |
+          cd backend
+          python -m pytest
+      
+      - name: Install frontend dependencies
+        run: |
+          cd frontend
+          npm ci
+      
+      - name: Run frontend tests
+        run: |
+          cd frontend
+          npm test
+
+  approve-merge:
+    runs-on: ubuntu-latest
+    needs: test
+    if: github.event_name == 'pull_request'
+    
+    steps:
+      - name: Tests passed, ready to merge
+        run: echo "All tests have passed. This PR can be merged when ready." 

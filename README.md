@@ -178,6 +178,40 @@ rpn-calculator/
    - Backend API: http://localhost:8000
    - API Documentation: http://localhost:8000/docs
 
+### Environment Configuration
+
+The project uses environment variables for configuration. Sample `.env.sample` files are provided in the repository:
+
+1. **Root Directory** (`.env.sample`): 
+   - Contains variables used by Docker Compose
+   - Database credentials and connection settings
+   - Service URLs and ports
+
+2. **Backend** (`backend/.env.sample`):
+   - API configuration
+   - Database connection details
+   - CORS settings for the frontend
+
+3. **Frontend** (`frontend/.env.sample`):
+   - API URL configuration for connecting to the backend
+
+4. **Core Module** (`core/.env.sample`):
+   - Database settings for the core package when used standalone
+
+To set up your environment:
+
+```bash
+# Copy all sample env files to their respective locations
+cp .env.sample .env
+cp backend/.env.sample backend/.env
+cp frontend/.env.sample frontend/.env
+cp core/.env.sample core/.env
+
+# Edit each .env file to customize settings as needed
+```
+
+For Docker Compose, the environment variables will be loaded from the `.env` file in the project root and from the individual component `.env` files specified in the `env_file` section of the Docker Compose configuration.
+
 ### Development vs Production Setup
 
 The project includes separate configurations for development and production:

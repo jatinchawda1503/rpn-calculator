@@ -27,6 +27,7 @@ export default function Calculator({ onCalculationSuccess }: { onCalculationSucc
   const [historyData, setHistoryData] = useState<HistoryItem[]>([]);
   const [isHistoryLoading, setIsHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [advancedMode, setAdvancedMode] = useState(false);
 
   // Map keyboard keys to calculator operations
   const keyMap: { [key: string]: string } = {
@@ -118,6 +119,30 @@ export default function Calculator({ onCalculationSuccess }: { onCalculationSucc
     } else {
         setError('Nothing to undo');
       }
+    } else if (key === 'ToggleSign') {
+      // Toggle the sign of the current input
+      if (input) {
+        if (input.startsWith('-')) {
+          // Remove the negative sign
+          setInput(input.substring(1));
+        } else {
+          // Add negative sign
+          setInput('-' + input);
+        }
+      } else if (stack.length > 0) {
+        // If no input but there's a value on the stack, toggle the sign of the top value
+        const topValue = parseFloat(stack[stack.length - 1]);
+        const newValue = -topValue;
+        
+        // Save current state for undo
+        setHistory(prev => [...prev, [...stack]]);
+        
+        // Update stack with new value
+        const newStack = [...stack.slice(0, -1), newValue.toString()];
+        setStack(newStack);
+      } else {
+        setError('No value to toggle sign');
+      }
     } else if (key === 'Enter') {
       // Only process if there's input
       if (input.trim()) {
@@ -133,7 +158,7 @@ export default function Calculator({ onCalculationSuccess }: { onCalculationSucc
           setError('Invalid number');
         }
       }
-    } else if (['+', '-', '*', '/', 'pow'].includes(key)) {
+    } else if (['+', '-', '*', '/', 'pow', '%'].includes(key)) {
       // Process operations - we need two values, either from stack or input + stack
       let a: number, b: number;
       const newStack = [...stack];
@@ -195,6 +220,143 @@ export default function Calculator({ onCalculationSuccess }: { onCalculationSucc
           case 'pow': 
             result = Math.pow(a, b); 
             resultText = `${a}^${b} = ${result}`;
+            break;
+          case '%':
+            if (b === 0) throw new Error('Modulo by zero');
+            result = a % b;
+            resultText = `${a} % ${b} = ${result}`;
+            break;
+        }
+        
+        // Save calculation history
+        setCalcHistory(prev => [...prev, {
+          expression: resultText,
+          result
+        }]);
+        
+        // Create a new stack with the result
+        newStack.push(result.toString());
+        setStack(newStack);
+        setInput('');
+        
+        // Notify parent if a calculation was successful
+        if (onCalculationSuccess) {
+          onCalculationSuccess();
+        }
+      } catch (err) {
+        setError(err instanceof Error ? err.message : 'Calculation error');
+      }
+    } else if (['sqrt', 'sin', 'cos', 'tan', 'log', 'ln', '!', 'pi', 'e'].includes(key)) {
+      // Process unary operations or constants
+      let value: number;
+      const newStack = [...stack];
+      let resultText = '';
+      
+      // For constants
+      if (key === 'pi') {
+        value = Math.PI;
+        resultText = `π = ${value}`;
+        newStack.push(value.toString());
+        setStack(newStack);
+        setInput('');
+        
+        // Save calculation history
+        setCalcHistory(prev => [...prev, {
+          expression: resultText,
+          result: value
+        }]);
+        return;
+      }
+      
+      if (key === 'e') {
+        value = Math.E;
+        resultText = `e = ${value}`;
+        newStack.push(value.toString());
+        setStack(newStack);
+        setInput('');
+        
+        // Save calculation history
+        setCalcHistory(prev => [...prev, {
+          expression: resultText,
+          result: value
+        }]);
+        return;
+      }
+      
+      // For other operations, we need one value from input or stack
+      if (input !== '') {
+        try {
+          value = parseFloat(input);
+          if (isNaN(value)) throw new Error('Invalid input');
+        } catch (err) {
+          setError(err instanceof Error ? err.message : 'Invalid input');
+          return;
+        }
+      } else {
+        // No input, so we need at least 1 value on stack
+        if (stack.length < 1) {
+          setError('Need at least one value for operation');
+          return;
+        }
+        
+        // Pop value from stack
+        value = parseFloat(newStack.pop() || '0');
+      }
+      
+      // Save current state for undo
+      setHistory(prev => [...prev, [...stack]]);
+      
+      let result = 0;
+      
+      try {
+        switch (key) {
+          case 'sqrt':
+            if (value < 0) throw new Error('Cannot calculate square root of a negative number');
+            result = Math.sqrt(value);
+            resultText = `√${value} = ${result}`;
+            break;
+          case 'sin':
+            // Convert to radians for JS Math functions
+            result = Math.sin(value * (Math.PI / 180));
+            resultText = `sin(${value}°) = ${result}`;
+            break;
+          case 'cos':
+            result = Math.cos(value * (Math.PI / 180));
+            resultText = `cos(${value}°) = ${result}`;
+            break;
+          case 'tan':
+            result = Math.tan(value * (Math.PI / 180));
+            resultText = `tan(${value}°) = ${result}`;
+            break;
+          case 'log':
+            if (value <= 0) throw new Error('Cannot calculate logarithm of zero or negative number');
+            result = Math.log10(value);
+            resultText = `log(${value}) = ${result}`;
+            break;
+          case 'ln':
+            if (value <= 0) throw new Error('Cannot calculate natural logarithm of zero or negative number');
+            result = Math.log(value);
+            resultText = `ln(${value}) = ${result}`;
+            break;
+          case '!':
+            // Factorial implementation
+            if (value < 0 || !Number.isInteger(value)) {
+              throw new Error('Factorial is only defined for non-negative integers');
+            }
+            
+            if (value > 170) {
+              throw new Error('Value too large for factorial calculation');
+            }
+            
+            if (value === 0 || value === 1) {
+              result = 1;
+            } else {
+              result = 1;
+              for (let i = 2; i <= value; i++) {
+                result *= i;
+              }
+            }
+            resultText = `${value}! = ${result}`;
             break;
         }
         
@@ -268,6 +430,11 @@ export default function Calculator({ onCalculationSuccess }: { onCalculationSucc
     }
   }, [error]);
 
+  // Toggle between basic and advanced mode
+  const toggleMode = () => {
+    setAdvancedMode(!advancedMode);
+  };
+
   return (
     <div className="w-full max-w-sm mx-auto">
       {showHistory ? (
@@ -276,7 +443,7 @@ export default function Calculator({ onCalculationSuccess }: { onCalculationSucc
             <div className="invisible">Placeholder</div>
             <button 
               onClick={toggleHistory}
-              className="text-gray-400 hover:text-white transition-colors duration-200"
+              className="text-gray-400 hover:text-white transition-colors duration-200 cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -294,10 +461,15 @@ export default function Calculator({ onCalculationSuccess }: { onCalculationSucc
       ) : (
         <div className="bg-gray-800 rounded-xl shadow-xl">
           <div className="flex justify-between items-center p-3 border-b border-gray-700">
-            <div className="invisible">Placeholder</div>
+            <button 
+              onClick={toggleMode}
+              className={`text-xs font-medium rounded-lg px-2 py-1 cursor-pointer ${advancedMode ? 'bg-purple-600 text-white' : 'bg-gray-600 text-gray-200'}`}
+            >
+              {advancedMode ? 'Advanced' : 'Basic'}
+            </button>
             <button 
               onClick={toggleHistory}
-              className="text-gray-400 hover:text-white transition-colors duration-200"
+              className="text-gray-400 hover:text-white transition-colors duration-200 cursor-pointer"
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -329,7 +501,7 @@ export default function Calculator({ onCalculationSuccess }: { onCalculationSucc
               <div className="pr-6">{error}</div>
               <button 
                 onClick={clearError}
-                className="absolute top-1 right-1 text-red-400 hover:text-red-300"
+                className="absolute top-1 right-1 text-red-400 hover:text-red-300 cursor-pointer"
                 aria-label="Close error message"
               >
                 <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
@@ -341,129 +513,295 @@ export default function Calculator({ onCalculationSuccess }: { onCalculationSucc
 
           {/* Calculator buttons - responsive sizing */}
           <div className="p-3 grid grid-cols-4 gap-1">
-            {/* Row 1: clear, pow, swap, / */}
-            <button
-              onClick={() => handleCalculatorInput('clear')}
-              className="py-2 text-sm font-medium bg-red-600 text-white rounded-lg"
-            >
-              clear
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('pow')}
-              className="py-2 text-sm font-medium bg-gray-600 text-white rounded-lg"
-            >
-              pow
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('Swap')}
-              className="py-2 text-sm font-medium bg-gray-600 text-white rounded-lg"
-            >
-              swap
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('/')}
-              className="py-2 text-sm font-medium bg-gray-600 text-white rounded-lg"
-            >
-              /
-            </button>
-            
-            {/* Row 2: 7, 8, 9, × */}
-            <button
-              onClick={() => handleCalculatorInput('7')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              7
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('8')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              8
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('9')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              9
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('*')}
-              className="py-2 text-base font-medium bg-gray-600 text-white rounded-lg"
-            >
-              ×
-            </button>
-            
-            {/* Row 3: 4, 5, 6, - */}
-            <button
-              onClick={() => handleCalculatorInput('4')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              4
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('5')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              5
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('6')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              6
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('-')}
-              className="py-2 text-base font-medium bg-gray-600 text-white rounded-lg"
-            >
-              -
-            </button>
-            
-            {/* Row 4: 1, 2, 3, + */}
-            <button
-              onClick={() => handleCalculatorInput('1')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              1
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('2')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              2
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('3')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              3
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('+')}
-              className="py-2 text-base font-medium bg-gray-600 text-white rounded-lg"
-            >
-              +
-            </button>
-            
-            {/* Row 5: 0, ., enter (spans 2 columns) */}
-            <button
-              onClick={() => handleCalculatorInput('0')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              0
-            </button>
-            <button
-              onClick={() => handleCalculatorInput('.')}
-              className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg"
-            >
-              .
-            </button>
-              <button
-              onClick={() => handleCalculatorInput('Enter')}
-              className="py-2 text-base font-medium bg-green-600 text-white rounded-lg col-span-2"
-            >
-              enter
-              </button>
+            {advancedMode ? (
+              <>
+                {/* Advanced Mode Buttons */}
+                {/* Row 1: clear, undo, swap, / */}
+                <button
+                  onClick={() => handleCalculatorInput('clear')}
+                  className="py-2 text-sm font-medium bg-red-600 text-white rounded-lg cursor-pointer"
+                >
+                  clear
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('Undo')}
+                  className="py-2 text-sm font-medium bg-amber-600 text-white rounded-lg cursor-pointer"
+                >
+                  undo
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('Swap')}
+                  className="py-2 text-sm font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  swap
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('/')}
+                  className="py-2 text-sm font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  /
+                </button>
+                
+                {/* Row 2: sqrt, sin, cos, × */}
+                <button
+                  onClick={() => handleCalculatorInput('sqrt')}
+                  className="py-2 text-sm font-medium bg-purple-600 text-white rounded-lg cursor-pointer"
+                >
+                  sqrt
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('sin')}
+                  className="py-2 text-sm font-medium bg-purple-600 text-white rounded-lg cursor-pointer"
+                >
+                  sin
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('cos')}
+                  className="py-2 text-sm font-medium bg-purple-600 text-white rounded-lg cursor-pointer"
+                >
+                  cos
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('*')}
+                  className="py-2 text-base font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  ×
+                </button>
+                
+                {/* Row 3: tan, log, ln, - */}
+                <button
+                  onClick={() => handleCalculatorInput('tan')}
+                  className="py-2 text-sm font-medium bg-purple-600 text-white rounded-lg cursor-pointer"
+                >
+                  tan
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('log')}
+                  className="py-2 text-sm font-medium bg-purple-600 text-white rounded-lg cursor-pointer"
+                >
+                  log
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('ln')}
+                  className="py-2 text-sm font-medium bg-purple-600 text-white rounded-lg cursor-pointer"
+                >
+                  ln
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('-')}
+                  className="py-2 text-base font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  -
+                </button>
+                
+                {/* Row 4: pow, !, pi, + */}
+                <button
+                  onClick={() => handleCalculatorInput('pow')}
+                  className="py-2 text-sm font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  x^y
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('!')}
+                  className="py-2 text-sm font-medium bg-purple-600 text-white rounded-lg cursor-pointer"
+                >
+                  !
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('pi')}
+                  className="py-2 text-sm font-medium bg-purple-600 text-white rounded-lg cursor-pointer"
+                >
+                  π
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('+')}
+                  className="py-2 text-base font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  +
+                </button>
+                
+                {/* Row 5: 0, ., e, % */}
+                <button
+                  onClick={() => handleCalculatorInput('0')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  0
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('.')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  .
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('e')}
+                  className="py-2 text-sm font-medium bg-purple-600 text-white rounded-lg cursor-pointer"
+                >
+                  e
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('%')}
+                  className="py-2 text-sm font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  %
+                </button>
+                
+                {/* Row 6: +/-, Enter */}
+                <button
+                  onClick={() => handleCalculatorInput('ToggleSign')}
+                  className="py-2 text-sm font-medium bg-teal-600 text-white rounded-lg cursor-pointer"
+                >
+                  +/-
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('Enter')}
+                  className="py-2 text-base font-medium bg-green-600 text-white rounded-lg col-span-3 cursor-pointer"
+                >
+                  enter
+                </button>
+              </>
+            ) : (
+              <>
+                {/* Basic Mode Buttons */}
+                {/* Row 1: clear, undo, swap, / */}
+                <button
+                  onClick={() => handleCalculatorInput('clear')}
+                  className="py-2 text-sm font-medium bg-red-600 text-white rounded-lg cursor-pointer"
+                >
+                  clear
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('Undo')}
+                  className="py-2 text-sm font-medium bg-amber-600 text-white rounded-lg cursor-pointer"
+                >
+                  undo
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('Swap')}
+                  className="py-2 text-sm font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  swap
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('/')}
+                  className="py-2 text-sm font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  /
+                </button>
+                
+                {/* Row 2: 7, 8, 9, × */}
+                <button
+                  onClick={() => handleCalculatorInput('7')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  7
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('8')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  8
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('9')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  9
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('*')}
+                  className="py-2 text-base font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  ×
+                </button>
+                
+                {/* Row 3: 4, 5, 6, - */}
+                <button
+                  onClick={() => handleCalculatorInput('4')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  4
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('5')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  5
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('6')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  6
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('-')}
+                  className="py-2 text-base font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  -
+                </button>
+                
+                {/* Row 4: 1, 2, 3, + */}
+                <button
+                  onClick={() => handleCalculatorInput('1')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  1
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('2')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  2
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('3')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  3
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('+')}
+                  className="py-2 text-base font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  +
+                </button>
+                
+                {/* Row 5: 0, ., +/-, pow */}
+                <button
+                  onClick={() => handleCalculatorInput('0')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  0
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('.')}
+                  className="py-2 text-base font-medium bg-gray-700 text-white rounded-lg cursor-pointer"
+                >
+                  .
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('ToggleSign')}
+                  className="py-2 text-sm font-medium bg-teal-600 text-white rounded-lg cursor-pointer"
+                >
+                  +/-
+                </button>
+                <button
+                  onClick={() => handleCalculatorInput('pow')}
+                  className="py-2 text-sm font-medium bg-gray-600 text-white rounded-lg cursor-pointer"
+                >
+                  pow
+                </button>
+                
+                {/* Row 6: Enter */}
+                <button
+                  onClick={() => handleCalculatorInput('Enter')}
+                  className="py-2 text-base font-medium bg-green-600 text-white rounded-lg cursor-pointer col-span-4"
+                >
+                  enter
+                </button>
+              </>
+            )}
           </div>
         </div>
       )}
